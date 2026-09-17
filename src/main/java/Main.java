@@ -1,18 +1,26 @@
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 
-public class Main {
+public class Main 
+{
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException 
+    {
 
         ServerSocket serverSocket = new ServerSocket(6379);
         System.out.println("Redis server started on port 6379");
         Socket clientSocket = serverSocket.accept();
         System.out.println("Client connected");
 
+        InputStream input = clientSocket.getInputStream();
         OutputStream output = clientSocket.getOutputStream();
+        byte[] buffer = new byte[1024];
+        int bytesRead = input.read(buffer);
+        String command = new String(buffer, 0, bytesRead);
+        System.out.println("Received: " + command);
         output.write("+PONG\r\n".getBytes());
         output.flush();
         clientSocket.getInputStream().read();
