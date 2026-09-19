@@ -1,0 +1,79 @@
+🖥️ CMD — Window 1
+
+cd /d D:\Degree_Engineering\Projects\my-redis-java
+javac src\main\java\Main.java
+java -cp src\main\java Main
+
+🖥️ PowerShell — Window 2
+$client = New-Object System.Net.Sockets.TcpClient("localhost",6379)
+$stream = $client.GetStream()
+$buffer = New-Object byte[] 1024
+
+# SET name Shlok
+$command = "*3`r`n" + '$3' + "`r`nSET`r`n" + '$4' + "`r`nname`r`n" + '$5' + "`r`nShlok`r`n"
+$bytes = [System.Text.Encoding]::ASCII.GetBytes($command)
+$stream.Write($bytes,0,$bytes.Length)
+$count = $stream.Read($buffer,0,$buffer.Length)
+[System.Text.Encoding]::ASCII.GetString($buffer,0,$count)
+
+# GET name
+$command = "*2`r`n" + '$3' + "`r`nGET`r`n" + '$4' + "`r`nname`r`n"
+$bytes = [System.Text.Encoding]::ASCII.GetBytes($command)
+$stream.Write($bytes,0,$bytes.Length)
+$count = $stream.Read($buffer,0,$buffer.Length)
+[System.Text.Encoding]::ASCII.GetString($buffer,0,$count)
+
+# DEL name
+$command = "*2`r`n" + '$3' + "`r`nDEL`r`n" + '$4' + "`r`nname`r`n"
+$bytes = [System.Text.Encoding]::ASCII.GetBytes($command)
+$stream.Write($bytes,0,$bytes.Length)
+$count = $stream.Read($buffer,0,$buffer.Length)
+[System.Text.Encoding]::ASCII.GetString($buffer,0,$count)
+
+# SET count 10
+$command = "*3`r`n" + '$3' + "`r`nSET`r`n" + '$5' + "`r`ncount`r`n" + '$2' + "`r`n10`r`n"
+$bytes = [System.Text.Encoding]::ASCII.GetBytes($command)
+$stream.Write($bytes,0,$bytes.Length)
+$count = $stream.Read($buffer,0,$buffer.Length)
+[System.Text.Encoding]::ASCII.GetString($buffer,0,$count)
+
+# INCR count
+$command = "*2`r`n" + '$4' + "`r`nINCR`r`n" + '$5' + "`r`ncount`r`n"
+$bytes = [System.Text.Encoding]::ASCII.GetBytes($command)
+$stream.Write($bytes,0,$bytes.Length)
+$count = $stream.Read($buffer,0,$buffer.Length)
+[System.Text.Encoding]::ASCII.GetString($buffer,0,$count)
+
+# DECR count
+$command = "*2`r`n" + '$4' + "`r`nDECR`r`n" + '$5' + "`r`ncount`r`n"
+$bytes = [System.Text.Encoding]::ASCII.GetBytes($command)
+$stream.Write($bytes,0,$bytes.Length)
+$count = $stream.Read($buffer,0,$buffer.Length)
+[System.Text.Encoding]::ASCII.GetString($buffer,0,$count)
+
+
+
+Short cut 
+
+$client = New-Object System.Net.Sockets.TcpClient("localhost",6379)
+$stream = $client.GetStream()
+$buffer = New-Object byte[] 1024
+
+function Send-RedisCommand($command) {
+    $parts = $command -split " "
+    $request = "*" + $parts.Count + "`r`n"
+    foreach ($part in $parts) {
+        $request += '$' + $part.Length + "`r`n" + $part + "`r`n"
+    }
+
+    $bytes = [System.Text.Encoding]::ASCII.GetBytes($request)
+    $stream.Write($bytes,0,$bytes.Length)
+
+    $count = $stream.Read($buffer,0,$buffer.Length)
+    [System.Text.Encoding]::ASCII.GetString($buffer,0,$count)
+}
+
+Send-RedisCommand "SET count 10"
+Send-RedisCommand "GET count"
+Send-RedisCommand "INCR count"
+Send-RedisCommand "DECR count"

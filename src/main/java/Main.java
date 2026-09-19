@@ -3,12 +3,15 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.HashMap;
+import java.util.Map;
 
 public class Main 
 {
 
     public static void main(String[] args) throws IOException 
     {
+        Map<String, String> store = new HashMap<>();
 
         ServerSocket serverSocket = new ServerSocket(6379);
         System.out.println("Redis server started on port 6379");
@@ -40,10 +43,15 @@ public class Main
 
             String message = null;
 
-            if (argumentCount == 2) 
+            if (argumentCount == 3) 
             {
                 int messageLength = Integer.parseInt(parts[3].substring(1));
                 message = parts[4];
+
+                String key = parts[4];
+                String value = parts[6];
+
+                store.put(key, value);
 
                 System.out.println("Message length: " + messageLength);
                 System.out.println("Message: " + message);
@@ -56,6 +64,37 @@ public class Main
             if (command.length() == argumentLength && command.equals("PING")) 
             {
                 output.write("+PONG\r\n".getBytes());
+            } 
+            else if (command.equals("SET") && message != null) 
+            {
+                output.write("+OK\r\n".getBytes());
+            } 
+            else if (command.equals("GET")) 
+            {
+                String key = parts[4];
+                String value = store.get(key);
+
+                output.write(("$" + value.length() + "\r\n" + value + "\r\n").getBytes());
+            }
+            else if(command.equals("DEL"))
+            {
+                String key=parts[4];
+                int removed=store.remove(key)!=null ? 1:0;
+                output.write((":"+removed+"\r\n").getBytes());
+            }
+            else if(command.equals("INCR"))
+            {
+                String key=parts[4];
+                int value=Integer.parseInt(store.get(key))+1;
+                store.put(key,String.valueOf(value));
+                output.write((":"+value+"\r\n").getBytes());
+            }
+            else if(command.equals("DECR"))
+            {
+                String key = parts[4];
+                int value = Integer.parseInt(store.get(key)) - 1;
+                store.put(key, String.valueOf(value));
+                output.write((":" + value + "\r\n").getBytes());
             } 
             else if (command.length() == argumentLength && command.equals("ECHO") && message != null) 
             {
