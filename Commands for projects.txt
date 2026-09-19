@@ -1,10 +1,9 @@
-🖥️ CMD — Window 1
+🖥️ CMD — Window 1  Fixed Commands
 
-cd /d D:\Degree_Engineering\Projects\my-redis-java
 javac src\main\java\Main.java
 java -cp src\main\java Main
 
-🖥️ PowerShell — Window 2
+🖥️ PowerShell — Window 2    Manual Commands
 $client = New-Object System.Net.Sockets.TcpClient("localhost",6379)
 $stream = $client.GetStream()
 $buffer = New-Object byte[] 1024
@@ -53,7 +52,7 @@ $count = $stream.Read($buffer,0,$buffer.Length)
 
 
 
-Short cut 
+Short-cut Window 2 Commands
 
 $client = New-Object System.Net.Sockets.TcpClient("localhost",6379)
 $stream = $client.GetStream()
@@ -74,6 +73,83 @@ function Send-RedisCommand($command) {
 }
 
 Send-RedisCommand "SET count 10"
-Send-RedisCommand "GET count"
+
+Send-RedisCommand "SET name Shlok"
+Send-RedisCommand "EXPIRE name 30"
+Send-RedisCommand "GET name"
+
 Send-RedisCommand "INCR count"
 Send-RedisCommand "DECR count"
+Send-RedisCommand "EXISTS name"
+Send-RedisCommand "EXISTS age"
+Send-RedisCommand "INCRBY count 5"
+Send-RedisCommand "DECRBY count 7"
+
+Send-RedisCommand "SETNX name Shlok"
+Send-RedisCommand "SETNX name Rahul"
+
+Send-RedisCommand "GET name"
+Send-RedisCommand "SET name Shlok"
+Send-RedisCommand "APPEND name Atal"
+
+Send-RedisCommand "GET name"
+Send-RedisCommand "SET name Shlok"
+Send-RedisCommand "GETSET name Atal"
+
+Send-RedisCommand "GET name"
+Send-RedisCommand "MSET name Shlok city Satara"
+Send-RedisCommand "GET name"
+Send-RedisCommand "GET city"
+
+Send-RedisCommand "MSET name Shlok city Satara"
+Send-RedisCommand "MGET name city"
+
+Send-RedisCommand "SET name Shlok"
+Send-RedisCommand "EXPIRE name 10"
+
+Send-RedisCommand "SET name Shlok"
+Send-RedisCommand "EXPIRE name 30"
+Send-RedisCommand "TTL name"
+Send-RedisCommand "PTTL name"
+Send-RedisCommand "PERSIST name"
+
+Send-RedisCommand "LPUSH names Shlok"
+Send-RedisCommand "LPUSH names Rahul"
+Send-RedisCommand "RPUSH names Amit"
+Send-RedisCommand "LRANGE names 0 -1"
+Send-RedisCommand "LPOP names"
+Send-RedisCommand "RPOP names"
+Send-RedisCommand "LRANGE names 0 -1"
+
+Send-RedisCommand "LPUSH names Rahul"
+Send-RedisCommand "RPUSH names Shlok"
+Send-RedisCommand "RPUSH names Amit"
+Send-RedisCommand "LLEN names"
+
+Send-RedisCommand "LINDEX names 0"
+Send-RedisCommand "LINDEX names 1"
+Send-RedisCommand "LINDEX names -1"
+
+Send-RedisCommand "LSET names 1 Jay"
+Send-RedisCommand "LRANGE names 0 -1"
+
+Send-RedisCommand "LTRIM names 0 1"
+Send-RedisCommand "LRANGE names 0 -1"
+
+Send-RedisCommand "LPOS names Jay"
+Send-RedisCommand "LPOS names Amit"
+
+Send-RedisCommand "SADD skills Java"
+Send-RedisCommand "SADD skills Python"
+Send-RedisCommand "SADD skills Java"
+
+Send-RedisCommand "SISMEMBER skills Java"
+Send-RedisCommand "SISMEMBER skills C++"
+
+Send-RedisCommand "SCARD skills"
+Send-RedisCommand "SMEMBERS skills"
+Send-RedisCommand "SREM skills Java"
+Send-RedisCommand "SCARD skills"
+
+Verify
+Send-RedisCommand "ECHO hello"
