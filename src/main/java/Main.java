@@ -18,6 +18,7 @@ public class Main
         Map<String, Long> expiry = new HashMap<>();
         Map<String, List<String>> lists = new HashMap<>();
         Map<String, Set<String>> sets = new HashMap<>();
+        Map<String, Map<String, String>> hashes = new HashMap<>();
 
         ServerSocket serverSocket = new ServerSocket(6379);
         System.out.println("Redis server started on port 6379");
@@ -581,6 +582,91 @@ public class Main
                 Set<String> set = sets.get(key);
                 int size = (set == null) ? 0 : set.size();
                 output.write((":" + size + "\r\n").getBytes());
+            }
+            else if(command.equals("HSET")) 
+            {
+                String key = parts[4];
+                String field = parts[6];
+                String value = parts[8];
+                Map<String, String> hash = hashes.get(key);
+                if(hash == null) 
+                {
+                    hash = new HashMap<>();
+                    hashes.put(key, hash);
+                }
+                boolean exists = hash.containsKey(field);
+                hash.put(field, value);
+                output.write((":" + (exists ? 0 : 1) + "\r\n").getBytes());
+            }
+            else if(command.equals("HGET"))
+            {
+                String key=parts[4];
+                String field=parts[6];
+                Map<String, String> hash = hashes.get(key);
+                if(hash == null || !hash.containsKey(field)) 
+                {
+                    output.write("$-1\r\n".getBytes());
+                } 
+                else 
+                {
+                    String value = hash.get(field);
+                    output.write(("$" + value.length() + "\r\n" + value + "\r\n").getBytes());
+                }
+            }
+            else if(command.equals("HDEL")) 
+            {
+                String key = parts[4];
+                String field = parts[6];
+                Map<String, String> hash = hashes.get(key);
+                if(hash == null) 
+                {
+                    output.write(":0\r\n".getBytes());
+                } 
+                else 
+                {
+                    boolean removed = hash.remove(field) != null;
+                    output.write((":" + (removed ? 1 : 0) + "\r\n").getBytes());
+                }
+            }
+            else if(command.equals("HEXISTS")) 
+            {
+                String key = parts[4];
+                String field = parts[6];
+                Map<String, String> hash = hashes.get(key);
+                boolean exists = hash != null && hash.containsKey(field);
+                output.write((":" + (exists ? 1 : 0) + "\r\n").getBytes());
+            }
+            else if(command.equals("HGETALL")) 
+            {
+                String key = parts[4];
+                Map<String, String> hash = hashes.get(key);
+                if(hash == null)
+                {
+                    output.write("*0\r\n".getBytes());
+                } 
+                else 
+                {
+                    StringBuilder response = new StringBuilder();
+                    response.append("*").append(hash.size() * 2).append("\r\n");
+                    for (Map.Entry<String, String> entry : hash.entrySet()) 
+                    {
+                        String field = entry.getKey();
+                        String value = entry.getValue();
+
+                        response.append("$")
+                                .append(field.length())
+                                .append("\r\n")
+                                .append(field)
+                                .append("\r\n");
+
+                        response.append("$")
+                                .append(value.length())
+                                .append("\r\n")
+                                .append(value)
+                                .append("\r\n");
+                    }
+                    output.write(response.toString().getBytes());
+                }
             }
             
             else if(command.equals("ECHO"))
