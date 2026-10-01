@@ -9,9 +9,42 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 public class Main
 {
+static boolean keyExists(
+        String key,
+        Map<String, String> store,
+        Map<String, List<String>> lists,
+        Map<String, Set<String>> sets,
+        Map<String, Map<String, String>> hashes,
+        Map<String, Map<String, Double>> sortedSets)
+{
+    return store.containsKey(key)
+            || lists.containsKey(key)
+            || sets.containsKey(key)
+            || hashes.containsKey(key)
+            || sortedSets.containsKey(key);
+}
+
+static void removeKey(
+        String key,
+        Map<String, String> store,
+        Map<String, Long> expiry,
+        Map<String, List<String>> lists,
+        Map<String, Set<String>> sets,
+        Map<String, Map<String, String>> hashes,
+        Map<String, Map<String, Double>> sortedSets)
+{
+    store.remove(key);
+    expiry.remove(key);
+    lists.remove(key);
+    sets.remove(key);
+    hashes.remove(key);
+    sortedSets.remove(key);
+}
+
     public static void main(String[] args) throws IOException
     {
         Map<String, String> store = new HashMap<>();
@@ -48,6 +81,13 @@ public class Main
             int argumentLength = Integer.parseInt(parts[1].substring(1));
 
             String command = parts[2];
+
+            String[] commandArgs = new String[argumentCount - 1];
+
+            for (int i = 0; i < commandArgs.length; i++)
+            {
+                commandArgs[i] = parts[4 + (i * 2)];
+            }
 
             System.out.println("Arguments: " + argumentCount);
             System.out.println("Command length: " + argumentLength);
@@ -504,18 +544,112 @@ public class Main
             }
             else if(command.equals("LPOS"))
             {
-                String key = parts[4];
-                String value = parts[6];
+                String key = commandArgs[0];
+                String element = commandArgs[1];
+
                 List<String> list = lists.get(key);
 
                 if(list == null)
                 {
-                    output.write(":-1\r\n".getBytes());
+                    output.write("$-1\r\n".getBytes());
                 }
                 else
                 {
-                    int index = list.indexOf(value);
-                    output.write((":" + index + "\r\n").getBytes());
+                    int rank = 1;
+                    int count = 1;
+                    int maxLen = list.size();
+
+                    for(int i = 2; i < commandArgs.length; i++)
+                    {
+                        String option = commandArgs[i].toUpperCase();
+
+                        if(option.equals("RANK") && i + 1 < commandArgs.length)
+                        {
+                            rank = Integer.parseInt(commandArgs[++i]);
+                        }
+                        else if(option.equals("COUNT") && i + 1 < commandArgs.length)
+                        {
+                            count = Integer.parseInt(commandArgs[++i]);
+                        }
+                        else if(option.equals("MAXLEN") && i + 1 < commandArgs.length)
+                        {
+                            maxLen = Integer.parseInt(commandArgs[++i]);
+                        }
+                    }
+
+                    List<Integer> positions = new ArrayList<>();
+
+                    if(rank >= 1)
+                    {
+                        int found = 0;
+
+                        for(int i = 0; i < list.size() && i < maxLen; i++)
+                        {
+                            if(list.get(i).equals(element))
+                            {
+                                found++;
+
+                                if(found >= rank)
+                                {
+                                    positions.add(i);
+
+                                    if(positions.size() >= count)
+                                    {
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        int found = 0;
+                        int minimum = Math.max(0, list.size() - maxLen);
+
+                        for(int i = list.size() - 1; i >= minimum; i--)
+                        {
+                            if(list.get(i).equals(element))
+                            {
+                                found++;
+
+                                if(found >= Math.abs(rank))
+                                {
+                                    positions.add(i);
+
+                                    if(positions.size() >= count)
+                                    {
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if(positions.isEmpty())
+                    {
+                        output.write("$-1\r\n".getBytes());
+                    }
+                    else if(count == 1)
+                    {
+                        output.write((":" + positions.get(0) + "\r\n").getBytes());
+                    }
+                    else
+                    {
+                        StringBuilder response = new StringBuilder();
+
+                        response.append("*")
+                                .append(positions.size())
+                                .append("\r\n");
+
+                        for(int position : positions)
+                        {
+                            response.append(":")
+                                    .append(position)
+                                    .append("\r\n");
+                        }
+
+                        output.write(response.toString().getBytes());
+                    }
                 }
             }
             else if(command.equals("SADD"))
@@ -745,6 +879,387 @@ public class Main
                         rank++;
                     }
                     output.write((":" + rank + "\r\n").getBytes());
+                }
+            }
+
+            else if(command.equals("TYPE"))
+            {
+                String key = commandArgs[0];
+
+                if(store.containsKey(key))
+                {
+                    output.write("+string\r\n".getBytes());
+                }
+                else if(lists.containsKey(key))
+                {
+                    output.write("+list\r\n".getBytes());
+                }
+                else if(sets.containsKey(key))
+                {
+                    output.write("+set\r\n".getBytes());
+                }
+                else if(hashes.containsKey(key))
+                {
+                    output.write("+hash\r\n".getBytes());
+                }
+                else if(sortedSets.containsKey(key))
+                {
+                    output.write("+zset\r\n".getBytes());
+                }
+                else
+                {
+                    output.write("+none\r\n".getBytes());
+                }
+            }
+            else if(command.equals("RENAME"))
+            {
+                String oldKey = commandArgs[0];
+                String newKey = commandArgs[1];
+
+                if(!keyExists(oldKey, store, lists, sets, hashes, sortedSets))
+                {
+                    output.write("-ERR no such key\r\n".getBytes());
+                }
+                else
+                {
+                    if(store.containsKey(oldKey))
+                    {
+                        store.put(newKey, store.remove(oldKey));
+                    }
+                    if(lists.containsKey(oldKey))
+                    {
+                        lists.put(newKey, lists.remove(oldKey));
+                    }
+                    if(sets.containsKey(oldKey))
+                    {
+                        sets.put(newKey, sets.remove(oldKey));
+                    }
+                    if(hashes.containsKey(oldKey))
+                    {
+                        hashes.put(newKey, hashes.remove(oldKey));
+                    }
+                    if(sortedSets.containsKey(oldKey))
+                    {
+                        sortedSets.put(newKey, sortedSets.remove(oldKey));
+                    }
+                    if(expiry.containsKey(oldKey))
+                    {
+                        expiry.put(newKey, expiry.remove(oldKey));
+                    }
+
+                    output.write("+OK\r\n".getBytes());
+                }
+            }
+            else if(command.equals("RENAMENX"))
+            {
+                String oldKey = commandArgs[0];
+                String newKey = commandArgs[1];
+
+                if(!keyExists(oldKey, store, lists, sets, hashes, sortedSets))
+                {
+                    output.write("-ERR no such key\r\n".getBytes());
+                }
+                else if(keyExists(newKey, store, lists, sets, hashes, sortedSets))
+                {
+                    output.write(":0\r\n".getBytes());
+                }
+                else
+                {
+                    if(store.containsKey(oldKey))
+                    {
+                        store.put(newKey, store.remove(oldKey));
+                    }
+                    if(lists.containsKey(oldKey))
+                    {
+                        lists.put(newKey, lists.remove(oldKey));
+                    }
+                    if(sets.containsKey(oldKey))
+                    {
+                        sets.put(newKey, sets.remove(oldKey));
+                    }
+                    if(hashes.containsKey(oldKey))
+                    {
+                        hashes.put(newKey, hashes.remove(oldKey));
+                    }
+                    if(sortedSets.containsKey(oldKey))
+                    {
+                        sortedSets.put(newKey, sortedSets.remove(oldKey));
+                    }
+                    if(expiry.containsKey(oldKey))
+                    {
+                        expiry.put(newKey, expiry.remove(oldKey));
+                    }
+
+                    output.write(":1\r\n".getBytes());
+                }
+            }
+            else if(command.equals("KEYS"))
+            {
+                String pattern = commandArgs[0];
+
+                String regex = pattern
+                        .replace(".", "\\.")
+                        .replace("*", ".*")
+                        .replace("?", ".");
+
+                Pattern compiledPattern = Pattern.compile("^" + regex + "$");
+
+                Set<String> allKeys = new HashSet<>();
+                allKeys.addAll(store.keySet());
+                allKeys.addAll(lists.keySet());
+                allKeys.addAll(sets.keySet());
+                allKeys.addAll(hashes.keySet());
+                allKeys.addAll(sortedSets.keySet());
+
+                List<String> matchingKeys = new ArrayList<>();
+
+                for(String key : allKeys)
+                {
+                    if(compiledPattern.matcher(key).matches())
+                    {
+                        matchingKeys.add(key);
+                    }
+                }
+
+                StringBuilder response = new StringBuilder();
+                response.append("*").append(matchingKeys.size()).append("\r\n");
+
+                for(String key : matchingKeys)
+                {
+                    response.append("$")
+                            .append(key.length())
+                            .append("\r\n")
+                            .append(key)
+                            .append("\r\n");
+                }
+
+                output.write(response.toString().getBytes());
+            }
+            else if(command.equals("DBSIZE"))
+            {
+                Set<String> allKeys = new HashSet<>();
+                allKeys.addAll(store.keySet());
+                allKeys.addAll(lists.keySet());
+                allKeys.addAll(sets.keySet());
+                allKeys.addAll(hashes.keySet());
+                allKeys.addAll(sortedSets.keySet());
+
+                output.write((":" + allKeys.size() + "\r\n").getBytes());
+            }
+            else if(command.equals("FLUSHDB"))
+            {
+                store.clear();
+                expiry.clear();
+                lists.clear();
+                sets.clear();
+                hashes.clear();
+                sortedSets.clear();
+
+                output.write("+OK\r\n".getBytes());
+            }
+            else if(command.equals("GETDEL"))
+            {
+                String key = commandArgs[0];
+                String value = store.get(key);
+
+                if(value == null)
+                {
+                    output.write("$-1\r\n".getBytes());
+                }
+                else
+                {
+                    store.remove(key);
+                    expiry.remove(key);
+
+                    output.write(("$" + value.length() + "\r\n" +
+                            value + "\r\n").getBytes());
+                }
+            }
+            else if(command.equals("GETEX"))
+            {
+                String key = commandArgs[0];
+                String value = store.get(key);
+
+                if(value == null)
+                {
+                    output.write("$-1\r\n".getBytes());
+                }
+                else
+                {
+                    if(commandArgs.length >= 2)
+                    {
+                        String option = commandArgs[1].toUpperCase();
+
+                        if(option.equals("EX") && commandArgs.length >= 3)
+                        {
+                            long seconds = Long.parseLong(commandArgs[2]);
+                            expiry.put(key, System.currentTimeMillis() + (seconds * 1000L));
+                        }
+                        else if(option.equals("PX") && commandArgs.length >= 3)
+                        {
+                            long milliseconds = Long.parseLong(commandArgs[2]);
+                            expiry.put(key, System.currentTimeMillis() + milliseconds);
+                        }
+                        else if(option.equals("PERSIST"))
+                        {
+                            expiry.remove(key);
+                        }
+                    }
+
+                    output.write(("$" + value.length() + "\r\n" +
+                            value + "\r\n").getBytes());
+                }
+            }
+            else if(command.equals("INCRBYFLOAT"))
+            {
+                String key = commandArgs[0];
+                double increment = Double.parseDouble(commandArgs[1]);
+
+                double current = 0;
+
+                if(store.containsKey(key))
+                {
+                    current = Double.parseDouble(store.get(key));
+                }
+
+                double result = current + increment;
+                store.put(key, String.valueOf(result));
+
+                String value = String.valueOf(result);
+
+                output.write(("$" + value.length() + "\r\n" +
+                        value + "\r\n").getBytes());
+            }
+            else if(command.equals("STRLEN"))
+            {
+                String key = commandArgs[0];
+                String value = store.get(key);
+
+                int length = value == null ? 0 : value.length();
+
+                output.write((":" + length + "\r\n").getBytes());
+            }
+            else if(command.equals("SETRANGE"))
+            {
+                String key = commandArgs[0];
+                int offset = Integer.parseInt(commandArgs[1]);
+                String replacement = commandArgs[2];
+
+                String value = store.get(key);
+
+                if(value == null)
+                {
+                    value = "";
+                }
+
+                StringBuilder result = new StringBuilder(value);
+
+                while(result.length() < offset)
+                {
+                    result.append(" ");
+                }
+
+                for(int i = 0; i < replacement.length(); i++)
+                {
+                    int position = offset + i;
+
+                    if(position < result.length())
+                    {
+                        result.setCharAt(position, replacement.charAt(i));
+                    }
+                    else
+                    {
+                        result.append(replacement.charAt(i));
+                    }
+                }
+
+                store.put(key, result.toString());
+
+                output.write((":" + result.length() + "\r\n").getBytes());
+            }
+            else if(command.equals("GETRANGE"))
+            {
+                String key = commandArgs[0];
+                int start = Integer.parseInt(commandArgs[1]);
+                int end = Integer.parseInt(commandArgs[2]);
+
+                String value = store.get(key);
+
+                if(value == null)
+                {
+                    value = "";
+                }
+
+                if(start < 0)
+                {
+                    start = value.length() + start;
+                }
+
+                if(end < 0)
+                {
+                    end = value.length() + end;
+                }
+
+                if(start < 0)
+                {
+                    start = 0;
+                }
+
+                if(end >= value.length())
+                {
+                    end = value.length() - 1;
+                }
+
+                if(start > end || start >= value.length())
+                {
+                    output.write("$0\r\n\r\n".getBytes());
+                }
+                else
+                {
+                    String result = value.substring(start, end + 1);
+
+                    output.write(("$" + result.length() + "\r\n" +
+                            result + "\r\n").getBytes());
+                }
+            }
+            else if(command.equals("SPOP"))
+            {
+                String key = commandArgs[0];
+                Set<String> set = sets.get(key);
+
+                if(set == null || set.isEmpty())
+                {
+                    output.write("$-1\r\n".getBytes());
+                }
+                else
+                {
+                    String member = set.iterator().next();
+                    set.remove(member);
+
+                    if(set.isEmpty())
+                    {
+                        sets.remove(key);
+                    }
+
+                    output.write(("$" + member.length() + "\r\n" +
+                            member + "\r\n").getBytes());
+                }
+            }
+            else if(command.equals("SRANDMEMBER"))
+            {
+                String key = commandArgs[0];
+                Set<String> set = sets.get(key);
+
+                if(set == null || set.isEmpty())
+                {
+                    output.write("$-1\r\n".getBytes());
+                }
+                else
+                {
+                    String member = set.iterator().next();
+
+                    output.write(("$" + member.length() + "\r\n" +
+                            member + "\r\n").getBytes());
                 }
             }
 
