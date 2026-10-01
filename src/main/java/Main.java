@@ -49,12 +49,12 @@ public class Main
     {
         RedisStore redisStore = new RedisStore();
 
-        Map<String, String> store = new HashMap<>();
-        Map<String, Long> expiry = new HashMap<>();
-        Map<String, List<String>> lists = new HashMap<>();
-        Map<String, Set<String>> sets = new HashMap<>();
-        Map<String, Map<String, String>> hashes = new HashMap<>();
-        Map<String, Map<String, Double>> sortedSets = new HashMap<>();
+        Map<String, String> store = redisStore.store;
+        Map<String, Long> expiry = redisStore.expiry;
+        Map<String, List<String>> lists = redisStore.lists;
+        Map<String, Set<String>> sets = redisStore.sets;
+        Map<String, Map<String, String>> hashes = redisStore.hashes;
+        Map<String, Map<String, Double>> sortedSets = redisStore.sortedSets;
 
         ServerSocket serverSocket = new ServerSocket(6379);
         System.out.println("Redis server started on port 6379");
