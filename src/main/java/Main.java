@@ -19,6 +19,7 @@ public class Main
         Map<String, List<String>> lists = new HashMap<>();
         Map<String, Set<String>> sets = new HashMap<>();
         Map<String, Map<String, String>> hashes = new HashMap<>();
+        Map<String, Map<String, Double>> sortedSets = new HashMap<>();
 
         ServerSocket serverSocket = new ServerSocket(6379);
         System.out.println("Redis server started on port 6379");
@@ -668,7 +669,85 @@ public class Main
                     output.write(response.toString().getBytes());
                 }
             }
-            
+            else if(command.equals("ZADD")) 
+            {
+                String key = parts[4];
+                double score = Double.parseDouble(parts[6]);
+                String member = parts[8];
+                Map<String, Double> sortedSet = sortedSets.computeIfAbsent(key, k -> new HashMap<>());
+
+                boolean isNew = !sortedSet.containsKey(member);
+                sortedSet.put(member, score);
+
+                output.write((isNew ? ":1\r\n" : ":0\r\n").getBytes());
+            }
+            else if(command.equals("ZSCORE")) 
+            {
+                String key = parts[4];
+                String member = parts[6];
+                Map<String, Double> sortedSet = sortedSets.get(key);
+                if(sortedSet == null || !sortedSet.containsKey(member)) 
+                {
+                    output.write("$-1\r\n".getBytes());
+                } 
+                else 
+                {
+                    String score = String.valueOf(sortedSet.get(member));
+                    output.write(("$" + score.length() + "\r\n" + score + "\r\n").getBytes());
+                }
+            }
+            else if (command.equals("ZREM")) 
+            {
+                String key = parts[4];
+                String member = parts[6];
+                Map<String, Double> sortedSet = sortedSets.get(key);
+                if (sortedSet == null || !sortedSet.containsKey(member)) 
+                {
+                    output.write(":0\r\n".getBytes());
+                } 
+                else 
+                {
+                    sortedSet.remove(member);
+                    if(sortedSet.isEmpty()) 
+                    {
+                        sortedSets.remove(key);
+                    }
+                    output.write(":1\r\n".getBytes());
+                }
+            }
+            else if(command.equals("ZCARD")) 
+            {
+                String key = parts[4];
+                Map<String, Double> sortedSet = sortedSets.get(key);
+                int size = sortedSet == null ? 0 : sortedSet.size();
+                output.write((":" + size + "\r\n").getBytes());
+            }
+            else if(command.equals("ZRANK")) 
+            {
+                String key = parts[4];
+                String member = parts[6];
+                Map<String, Double> sortedSet = sortedSets.get(key);
+                if(sortedSet == null || !sortedSet.containsKey(member)) 
+                {
+                    output.write(":-1\r\n".getBytes());
+                } 
+                else 
+                {
+                    List<Map.Entry<String, Double>> entries =new ArrayList<>(sortedSet.entrySet());
+                    entries.sort(Map.Entry.comparingByValue());
+                    int rank = 0;
+                    for(Map.Entry<String, Double> entry : entries) 
+                    {
+                        if(entry.getKey().equals(member)) 
+                        {
+                            break;
+                        }
+                        rank++;
+                    }
+                    output.write((":" + rank + "\r\n").getBytes());
+                }
+            }
+
             else if(command.equals("ECHO"))
             {
                 String message = parts[4];
