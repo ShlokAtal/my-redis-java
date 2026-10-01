@@ -10,25 +10,26 @@ import java.util.List;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.regex.Pattern;
+import storage.RedisStore;
 
 public class Main
 {
-static boolean keyExists(
+    static boolean keyExists(
         String key,
         Map<String, String> store,
         Map<String, List<String>> lists,
         Map<String, Set<String>> sets,
         Map<String, Map<String, String>> hashes,
         Map<String, Map<String, Double>> sortedSets)
-{
-    return store.containsKey(key)
+    {
+            return store.containsKey(key)
             || lists.containsKey(key)
             || sets.containsKey(key)
             || hashes.containsKey(key)
             || sortedSets.containsKey(key);
-}
+    }
 
-static void removeKey(
+    static void removeKey(
         String key,
         Map<String, String> store,
         Map<String, Long> expiry,
@@ -36,17 +37,18 @@ static void removeKey(
         Map<String, Set<String>> sets,
         Map<String, Map<String, String>> hashes,
         Map<String, Map<String, Double>> sortedSets)
-{
-    store.remove(key);
-    expiry.remove(key);
-    lists.remove(key);
-    sets.remove(key);
-    hashes.remove(key);
-    sortedSets.remove(key);
-}
-
+    {
+        store.remove(key);
+        expiry.remove(key);
+        lists.remove(key);
+        sets.remove(key);
+        hashes.remove(key);
+        sortedSets.remove(key);
+    }
     public static void main(String[] args) throws IOException
     {
+        RedisStore redisStore = new RedisStore();
+
         Map<String, String> store = new HashMap<>();
         Map<String, Long> expiry = new HashMap<>();
         Map<String, List<String>> lists = new HashMap<>();
@@ -1262,7 +1264,6 @@ static void removeKey(
                             member + "\r\n").getBytes());
                 }
             }
-
             else if(command.equals("ECHO"))
             {
                 String message = parts[4];
